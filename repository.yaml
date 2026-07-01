@@ -1,3 +1,4 @@
-name: JK BMS Add-ons
-url: https://github.com/9991119990/jk-bms-add--on
-maintainer: 9991119990
+name: "JK BMS Add-ons Repository"
+url: "https://github.com/9991119990/jk-bms-add--on"
+maintainer: "9991119990"
+description: "JK BMS RS485 monitoring add-on with MQTT discovery"
