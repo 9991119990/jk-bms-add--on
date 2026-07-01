@@ -1,7 +1,7 @@
 name: JK BMS RS485 MQTT
 version: "0.1.0"
 slug: jk_bms_rs485_mqtt
-description: Reads JK BMS over RS485 and publishes values to Home Assistant MQTT discovery.
+description: Read JK BMS over RS485 and publish values to MQTT discovery
 arch:
   - aarch64
   - amd64
@@ -12,8 +12,6 @@ startup: services
 boot: auto
 init: false
 uart: true
-map:
-  - addon_config:rw
 options:
   serial_port: /dev/serial/by-id/usb-1a86_USB_Single_Serial_5A9A000831-if00
   baud: 115200
