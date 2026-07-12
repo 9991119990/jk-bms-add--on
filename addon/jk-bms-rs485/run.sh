@@ -16,6 +16,8 @@ echo "Starting JK BMS RS485 MQTT bridge"
 echo "Serial port: ${serial_port}"
 echo "MQTT broker: ${mqtt_host}:${mqtt_port}"
 echo "Interval: ${interval}s"
+echo "Visible serial devices:"
+ls -l /dev/ttyACM* /dev/ttyUSB* /dev/serial/by-id/* 2>/dev/null || true
 
 exec python3 /app/jk_bms_mqtt.py \
   --port "${serial_port}" \
