@@ -1,5 +1,5 @@
 name: "JK BMS RS485 MQTT"
-version: "0.1.2"
+version: "0.1.3"
 slug: "jk-bms-rs485"
 description: "Read JK BMS over RS485 and publish values to MQTT with Home Assistant discovery"
 arch:
@@ -18,7 +18,7 @@ usb: true
 devices:
   - /dev/ttyACM0
 options:
-  serial_port: "/dev/serial/by-id/usb-1a86_USB_Single_Serial_5A9A000831-if00"
+  serial_port: "/dev/ttyACM0"
   baud: 115200
   address: 0
   mqtt_host: "core-mosquitto"

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
+import glob
 import json
+import os
 import socket
 import time
 
@@ -98,6 +100,24 @@ def read_bms(port: str, baud: int, address: int) -> dict:
     return decode(status, settings, about)
 
 
+def resolve_port(configured_port: str) -> str:
+    candidates = [configured_port, "/dev/ttyACM0"]
+    candidates.extend(sorted(glob.glob("/dev/serial/by-id/*")))
+    candidates.extend(sorted(glob.glob("/dev/ttyACM*")))
+    candidates.extend(sorted(glob.glob("/dev/ttyUSB*")))
+
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if os.path.exists(candidate):
+            if candidate != configured_port:
+                print(f"Configured serial port {configured_port} is not available, using {candidate}", flush=True)
+            return candidate
+    return configured_port
+
+
 def discovery_config(
     name,
     key,
@@ -188,14 +208,24 @@ def main() -> None:
 
     state_topic = "jk_bms/state"
     while True:
-        data = flatten_cells(read_bms(args.port, args.baud, args.address))
-        client = MqttClient(args.mqtt_host, args.mqtt_port, args.mqtt_user, args.mqtt_password)
+        client = None
         try:
+            port = resolve_port(args.port)
+            data = flatten_cells(read_bms(port, args.baud, args.address))
+            client = MqttClient(args.mqtt_host, args.mqtt_port, args.mqtt_user, args.mqtt_password)
             publish_discovery(client, state_topic, data)
             client.publish("jk_bms/availability", "online", retain=True)
             client.publish(state_topic, data, retain=False)
+            print(
+                f"Published JK BMS data: {data.get('voltage_v')}V "
+                f"{data.get('current_a')}A SOC={data.get('soc_percent')}%",
+                flush=True,
+            )
+        except Exception as exc:
+            print(f"Read/publish failed: {exc}", flush=True)
         finally:
-            client.close()
+            if client is not None:
+                client.close()
         if args.once:
             break
         time.sleep(args.interval)
