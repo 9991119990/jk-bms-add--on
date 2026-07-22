@@ -193,6 +193,51 @@ def flatten_cells(data: dict) -> dict:
     return out
 
 
+def publish_availability(args, payload: str, mqtt_client_cls=MqttClient) -> bool:
+    client = None
+    try:
+        client = mqtt_client_cls(args.mqtt_host, args.mqtt_port, args.mqtt_user or None, args.mqtt_password or None)
+        client.publish("jk_bms/availability", payload, retain=True)
+        return True
+    except Exception as exc:
+        print(f"MQTT availability publish failed: {exc}", flush=True)
+        return False
+    finally:
+        if client is not None:
+            client.close()
+
+
+def run_iteration(args, mqtt_client_cls=MqttClient, read_bms_fn=read_bms) -> bool:
+    state_topic = "jk_bms/state"
+    client = None
+    try:
+        port = resolve_port(args.port)
+        data = flatten_cells(read_bms_fn(port, args.baud, args.address))
+        client = mqtt_client_cls(args.mqtt_host, args.mqtt_port, args.mqtt_user or None, args.mqtt_password or None)
+        publish_discovery(client, state_topic, data)
+        client.publish("jk_bms/availability", "online", retain=True)
+        client.publish(state_topic, data, retain=False)
+        print(
+            f"Published JK BMS data: {data.get('voltage_v')}V "
+            f"{data.get('current_a')}A SOC={data.get('soc_percent')}%",
+            flush=True,
+        )
+        return True
+    except Exception as exc:
+        print(f"Read/publish failed: {exc}", flush=True)
+        if client is not None:
+            try:
+                client.publish("jk_bms/availability", "offline", retain=True)
+            except Exception as mqtt_exc:
+                print(f"MQTT availability publish failed: {mqtt_exc}", flush=True)
+        else:
+            publish_availability(args, "offline", mqtt_client_cls)
+        return False
+    finally:
+        if client is not None:
+            client.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", default="/dev/ttyACM0")
@@ -206,26 +251,8 @@ def main() -> None:
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
 
-    state_topic = "jk_bms/state"
     while True:
-        client = None
-        try:
-            port = resolve_port(args.port)
-            data = flatten_cells(read_bms(port, args.baud, args.address))
-            client = MqttClient(args.mqtt_host, args.mqtt_port, args.mqtt_user, args.mqtt_password)
-            publish_discovery(client, state_topic, data)
-            client.publish("jk_bms/availability", "online", retain=True)
-            client.publish(state_topic, data, retain=False)
-            print(
-                f"Published JK BMS data: {data.get('voltage_v')}V "
-                f"{data.get('current_a')}A SOC={data.get('soc_percent')}%",
-                flush=True,
-            )
-        except Exception as exc:
-            print(f"Read/publish failed: {exc}", flush=True)
-        finally:
-            if client is not None:
-                client.close()
+        run_iteration(args)
         if args.once:
             break
         time.sleep(args.interval)
